@@ -1,8 +1,13 @@
 import Papa from 'papaparse';
 
+export type ContactCategory = 'Family' | 'Work' | 'VIP' | 'Other';
+
 export interface Contact {
   phone: string;
   name: string;
+  tags?: string[];
+  notes?: string;
+  category?: ContactCategory;
 }
 
 export function parsePhoneBookCSV(file: File): Promise<Contact[]> {
@@ -15,7 +20,12 @@ export function parsePhoneBookCSV(file: File): Promise<Contact[]> {
           .map((row) => {
             const phone = (row['PhoneNumber'] ?? row['phonenumber'] ?? row['phone'] ?? '').toString().trim();
             const name = (row['Name'] ?? row['name'] ?? '').toString().trim();
-            return { phone, name };
+            const tagsRaw = (row['Tags'] ?? row['tags'] ?? '').toString().trim();
+            const tags = tagsRaw ? tagsRaw.split(',').map((t) => t.trim()).filter(Boolean) : undefined;
+            const notes = (row['Notes'] ?? row['notes'] ?? '').toString().trim() || undefined;
+            const catRaw = (row['Category'] ?? row['category'] ?? '').toString().trim();
+            const category = (['Family', 'Work', 'VIP', 'Other'].includes(catRaw) ? catRaw : undefined) as ContactCategory | undefined;
+            return { phone, name, tags, notes, category };
           })
           .filter((c) => c.phone !== '');
         resolve(contacts);
@@ -27,7 +37,13 @@ export function parsePhoneBookCSV(file: File): Promise<Contact[]> {
 
 export function exportPhoneBookCSV(contacts: Contact[]): void {
   const csv = Papa.unparse(
-    contacts.map((c) => ({ PhoneNumber: c.phone, Name: c.name }))
+    contacts.map((c) => ({
+      PhoneNumber: c.phone,
+      Name: c.name,
+      Category: c.category ?? '',
+      Tags: (c.tags ?? []).join(','),
+      Notes: c.notes ?? '',
+    }))
   );
   downloadText(csv, 'phone_book.csv', 'text/csv');
 }

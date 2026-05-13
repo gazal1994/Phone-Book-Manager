@@ -1,7 +1,7 @@
 import type { SummaryRow } from './xlsxUtils';
 
 export const HISTORY_KEY = 'call_summary_history';
-export const MAX_HISTORY = 10;
+export const MAX_HISTORY = 25;
 
 export interface HistoryEntry {
   fileName: string;

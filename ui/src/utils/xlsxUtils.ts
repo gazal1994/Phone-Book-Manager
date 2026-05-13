@@ -249,19 +249,38 @@ export interface SummaryRow {
 }
 
 export function exportSummaryXLSX(rows: SummaryRow[], sourceFileName?: string): void {
-  const data = rows.map((r) => ({
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: aggregate summary
+  const summaryData = rows.map((r) => ({
     Phone: r.phone,
     Name: r.name,
     'Call Count': r.call_count,
     'Total Duration': r.total_duration,
+    'Has Late Call': r.hasLateCall ? 'Yes' : 'No',
   }));
-  const ws = XLSX.utils.json_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Summary');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryData), 'Summary');
+
+  // Sheet 2: per-call detail rows (excluding TOTAL row)
+  const detailData: Record<string, string | number>[] = [];
+  for (const r of rows) {
+    if (r.phone === 'TOTAL') continue;
+    for (const call of r.calls) {
+      detailData.push({
+        Phone: r.phone,
+        Name: r.name,
+        Date: call.datetime,
+        Duration: call.duration,
+        'Late (after 21:00)': call.isLate ? 'Yes' : 'No',
+      });
+    }
+  }
+  if (detailData.length > 0) {
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detailData), 'Call Details');
+  }
 
   let outputName = 'summary.xlsx';
   if (sourceFileName) {
-    // Strip extension from source file name and append " - summary.xlsx"
     const base = sourceFileName.replace(/\.[^/.]+$/, '');
     outputName = `${base} - summary.xlsx`;
   }

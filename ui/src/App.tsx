@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Contact } from './utils/csvUtils';
+import type { SummaryRow } from './utils/xlsxUtils';
 import type { HistoryEntry } from './utils/historyStore';
 import { loadHistory, saveHistory, MAX_HISTORY } from './utils/historyStore';
 import PhoneBook from './PhoneBook';
 import CallSummary from './CallSummary';
 import History from './History';
+import Dashboard from './Dashboard';
 
 const STORAGE_KEY = 'phone_book_contacts';
 
@@ -46,16 +48,21 @@ function loadContacts(): Contact[] {
   return INITIAL_CONTACTS;
 }
 
-type Tab = 'summary' | 'history' | 'phonebook';
+type Tab = 'dashboard' | 'summary' | 'history' | 'phonebook';
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('summary');
+  const [tab, setTab] = useState<Tab>('dashboard');
   const [contacts, setContactsRaw] = useState<Contact[]>(loadContacts);
   const [savedToast, setSavedToast] = useState(false);
   const [history, setHistoryRaw] = useState<HistoryEntry[]>(loadHistory);
   const [activeFileName, setActiveFileName] = useState('');
   const [initialEntry, setInitialEntry] = useState<HistoryEntry | null>(null);
   const [summaryKey, setSummaryKey] = useState(0);
+  // activeSummary drives the Dashboard and ContactDetail modal
+  const [activeSummary, setActiveSummary] = useState<SummaryRow[]>(() => {
+    const hist = loadHistory();
+    return hist.length > 0 ? hist[0].summary : [];
+  });
 
   const addHistory = useCallback((entry: HistoryEntry) => {
     setHistoryRaw((prev) => {
@@ -65,6 +72,7 @@ export default function App() {
       return updated;
     });
     setActiveFileName(entry.fileName);
+    setActiveSummary(entry.summary);
   }, []);
 
   const deleteHistoryEntry = useCallback((fileName: string) => {
@@ -79,6 +87,7 @@ export default function App() {
     setInitialEntry(entry);
     setSummaryKey((k) => k + 1);
     setActiveFileName(entry.fileName);
+    setActiveSummary(entry.summary);
     setTab('summary');
   }, []);
 
@@ -100,7 +109,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header — dark indigo gradient */}
       <header className="bg-gradient-to-r from-indigo-700 to-indigo-900 shadow-lg">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-4">
           <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center text-lg">
@@ -130,8 +138,14 @@ export default function App() {
           </div>
         </div>
 
-        {/* Tab bar inside header */}
+        {/* Tab bar */}
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex gap-0">
+          <TabButton
+            active={tab === 'dashboard'}
+            onClick={() => setTab('dashboard')}
+            label="Dashboard"
+            icon="📈"
+          />
           <TabButton
             active={tab === 'summary'}
             onClick={() => setTab('summary')}
@@ -155,8 +169,15 @@ export default function App() {
         </div>
       </header>
 
-      {/* Content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        {tab === 'dashboard' && (
+          <Dashboard
+            summary={activeSummary}
+            contacts={contacts}
+            activeFileName={activeFileName}
+            onGoToSummary={() => setTab('summary')}
+          />
+        )}
         {tab === 'summary' && (
           <CallSummary
             key={summaryKey}
@@ -179,7 +200,11 @@ export default function App() {
           />
         )}
         {tab === 'phonebook' && (
-          <PhoneBook contacts={contacts} setContacts={setContacts} />
+          <PhoneBook
+            contacts={contacts}
+            setContacts={setContacts}
+            activeSummary={activeSummary}
+          />
         )}
       </main>
     </div>
